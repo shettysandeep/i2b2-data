@@ -1,3 +1,180 @@
 ## Converting 2010 i2b2-data to IOB
 - Tailored to 2010 Concepts + Assertion files
 - and finetuning of BERT-based model for Medical NER 
+
+
+## Some notes on clinical NER systems 
+
+( most of the text below are direct extracts from knowledge piecing activity  - do not use this verbatim.)
+
+The following papers were selected for a general understanding of the clinical NLP/NER model/finetuning pipeline for the Moore funded eCQM for UTI mismeasurement. We also need information on performance/evaluation metrics prevalent in this domain as well as an understanding about acceptable cut-offs. In addition, we need to understand how to record, capture and store annotated datasets.
+
+Our main focus is detecting symptoms from patient charts to identify if a performed UTI culture/test is justified, and thus correctly recommended. Our task falls under Named Entity recognition (NER)
+
+Named Entity Recognition (NER) is the task of identifying named entities such as specific location, treatment plan, medicines/drug, and critical health information from the clinical text. A related activity is relationship extraction (RE), which is identifying relationship between any combination of named entities. An RE task is basically a classification of the semantic relationship between entities from textual data. Some important applications of clinical RE include gene–disease, drug– effect, disease–mutation, and disease–symptom relationships. The absence of generalized algorithms to perform RE makes it challenging to define and perform a new RE task; the state-of-the-art models vary between different datasets and from one domain to another. In general, RE is most commonly viewed as a supervised learning technique performing classification [27].
+
+	
+
+## Clinical NER models/pipeline
+
+Most clinical NER models use BiLSTMS+CRFs along with an increased use of BERT models as they are faster to train and more robust than LSTMs. The team has experimented with NER models using the i2b2 2010 concepts data to understand the process of finetuning large models for NER tasks. There is a need for RE extraction as well. While severity of a symptom is not important, the timing of the symptom is important to tie its presence to the episode when a UTI test was ordered. The focus of RE is to fix the temporal resolution of symptoms.
+
+The paper by [Priyanka Bose et al](
+https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiVgrO5nJn5AhUul4kEHcQnDnEQFnoECCwQAQ&url=https%3A%2F%2Fwww.mdpi.com%2F2076-3417%2F11%2F18%2F8319%2Fpdf%3Fversion%3D1631165902&usg=AOvVaw3KSiljfQVmYDtTlPS6469b) et al "A Survey on Recent Named Entity Recognition and Relationship Extraction Techniques on Clinical Texts" provides a good summary of the literature and the models used in this space. Some other papers:
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5977567/
+
+https://scholarworks.iupui.edu/bitstream/handle/1805/24759/Thesis_Priyanka_Gandhi.pdf?sequence=1&isAllowed=n
+
+
+
+
+Important paper to explore (link below) - there are using transfomers to clinical NER - we should explore this path... 
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7727351/
+They also have a github with the code
+https://github.com/uf-hobi-informatics-lab/ClinicalTransformerNER
+
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7872256/
+(Gao et al - A pre-training and self-training approach for biomedical named entity recognition)
+
+This paper pre-trains a model on a large data set that is publically avaiable and has similar entities to the target dataset. The model is then fine tuned on the target training/validation dataset.
+
+Then model is then run on the test set iterativel. Afer each iteration, individual observations that were correctly identified with a confidence score that meets a high enough threshhold is moved back into the training dataset. Training and testing are re-run until all of the test data items have been moved or no more meet the confidence threshhold. The validation always stays the same to ensure it is always gold standard.
+
+This method required less data from the target dataset to achive good performance. The team tested the method on both a Bi-LSTM CRF model and a BERT model. * I think I can try to replicate this with the modeling tools I know.
+
+https://bmcmedinformdecismak.biomedcentral.com/articles/10.1186/s12911-022-01967-7 
+Compares four biomedical domain-specific pre-trained contextual embedding models (named BioBERT, BlueBERT, PubMedBERT, and SciBERT ) and two general-domain models (named BERT and SpanBERT), for extracting diverse types of clinically relevant entities from three annotated clinical trials corpora. (All embdedding models are available on Hugging Face.)
+
+For annotations for nested entities, they kept the outside entity only and removed the annotation of the nested one; and merged the disjointed entities to form a longer, continuous entity.  
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7485218/
+This paper has a good discussion of the different types of pre-processing for both rules-based modeling and machine learning modeling. The Neural Network based embedding techniques discussed include Word2Vec, GloVe, fastText, and BERT.
+
+## Finetuning types
+(from E. Zhang et al. / Improving Clinical Named-Entity Recognition with Transfer Learning)
+**In-place:** In-place fine tuning is achieved by training a base model on a large dataset, then serializing the optimized weights of the model. Subsequent models are then trained using new examples, but the optimized weight is utilized as a starting point. Knowledge transfer occurs when the internal state or weights of the model are updated in reflection of changes in problem domain. See Figure 1(a) for the network diagram of this approach.
+
+**Bottleneck:** The technique adds additional layers on top of the original base model, while making previous layers untrainable. This approach assumes that knowledge from later, large datasets is more valuable than knowledge in the base model and therefore should be internalized in new layers. See Figure 1(b) for the network diagram of this approach.
+
+**Layer Replacement:** Layer replacement works by removing all layers after the bi- directional LSTM layer, thus discarding highly inaccurate connections, then adding in new layers enabling the creation of new network. 
+
+
+## Experiments
+### CRF
+https://towardsdatascience.com/named-entity-recognition-and-classification-with-scikit-learn-f05372f07ba2
+https://sklearn-crfsuite.readthedocs.io/en/latest/index.html
+
+### Link extraction
+https://colab.research.google.com/github/NielsRogge/Transformers-Tutorials/blob/master/LUKE/Supervised_relation_extraction_with_LukeForEntityPairClassification.ipynb#scrollTo=MiHWMKvIDW5b
+
+## What to Annotation 
+
+It is very important for us to figure out what to annotate in our dataset. This is naturally driven by what we want to model. What is the literature saying? 
+- Gundlapalli et (2017) "... annotating positively asserted mentions of urinary catheters of all types, with emphasis on capturing mentions of IUCs (device mentions) and relevant symptoms of CAUTI (fever and urinary symptoms such as painful or frequent urination)."
+
+### Negation detection
+Gundlapalli et al (2017) mention something about negation detection - what do they mean?
+##  Annotation Formats 
+
+### BIO format
+For this research, BIOE chunk tagging a variant of inside-outside-beginning (IOB) tagging [72] for NER was used. The B tag is used to show the beginning of the chunk and the E tag is used to show the end of the chunk. Anything that is between the chunk delimiters is set to I tag. If the word token does not belong to any chunk then it is indicated by an O tag. Any single chunk is represented by a B tag. Figure 6.3 shows a set of records where BIOE tagging is used. (Gandhi, 2022)
+
+### GMB
+add a note
+
+## Annotation Tools
+### CLAMP
+CLAMP is another NLP tool used by the SignSyn paper below (for annotation, training, etc.)
+Here is the simple demo https://clamp.uth.edu/clampdemo.php
+ 
+And here is the academic publication https://academic.oup.com/jamia/article/25/3/331/4657212
+
+### Prodigy (Spacy)
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8861690/ 
+
+### MedTator
+https://github.com/OHNLP/MedTator
+This annotation tool allows a user to create a schema with different entities and attributes. A user can also create links betwen entities. The program has a stand alone version if there is no internet access. 
+
+The program can export teh annotations as a jsonl file that is formatted as spaCy rules. It can also export a tsv file in the BIO tag format that is often used for transformer models. Those exports don't show linked entities. 
+
+### spaCy/MedspaCy
+spaCy and MedspaCy use a rules/patterns based system to annotate entities not already avaliable in a spaCy library. These annotated entities can be converted into a format used for spaCy training and into a BIO format that can be used for other models. 
+
+## Other Clinical NLP systems
+The clinical narrative has unique characteristics that differentiate it from scientific biomedical literature and the general domain, requiring a focused effort around methodologies within the clinical NLP field.2 Columbia University's proprietary Medical Language Extraction and Encoding System (MedLEE)3 was designed to process radiology reports, later extended to other domains,4 and tested for transferability to another institution.5 MedLEE discovers clinical concepts along with a set of modifiers. Health Information Text Extraction (HITEx)6,7 is an open-source clinical NLP system from Brigham and Women's Hospital and Harvard Medical School incorporated within the Informatics for Integrating Biology and the Bedside (i2b2) toolset.8 IBM's BioTeKS9 and MedKAT10 were developed as biomedical-domain NLP systems. SymText and MPLUS11,12 have been applied to extract the interpretations of lung scans13 to detect pneumonia14 and central venous catheters mentions.15 Other tools developed primarily for processing biomedical scholarly articles include the National Library of Medicine MetaMap,16 providing mappings to the Unified Medical Language System (UMLS) Metathesaurus concepts,17,18 those from the National Center for Text Mining (NaCTeM),19 JULIE lab,20 and U-compare,21 with some applications to the clinical domain.22 Within the Cancer Biomedical Informatics Grid23 initiative, the University of Pittsburgh's Cancer Tissue Information Extraction System24,25 aims at extracting information from surgical pathology reports using the National Cancer Institute Enterprise Vocabulary System26 and MetaMap.
+(from cTAKES paper)
+
+## UTI NLP
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8106637/
+
+## COVID SignSym
+This is an interesting paper that trains a base model using MIMIC III and then finetunes the model for 3 different test sites. The samples used for finetuning are used as guidance for our project. 
+
+
+https://academic.oup.com/jamia/article/28/6/1275/6155732?login=true
+
+https://github.com/Medical-NLP/COVID-19-Sign-Symptom
+
+The signs/symptom synonyms: https://github.com/Medical-NLP/COVID-19-Sign-Symptom/blob/main/covid19_signs_symptoms.csv
+
+
+## Rule-based methods/Dictionary
+Mayo clinical Text Analysis and Knowledge Extraction System (cTAKES)
+### cTAKES
+https://academic.oup.com/jamia/article/17/5/507/830823
+### MedSpacy
+### scispaCy 
+### MetaMap
+
+## Evaluation metric for NER models
+
+https://docs.microsoft.com/en-us/azure/cognitive-services/language-service/custom-named-entity-recognition/concepts/evaluation-metrics
+
+### F-measure/F-score
+(Verbatim text below do not use directly)
+
+The F-score is commonly used for evaluating information retrieval systems such as search engines, and also for many kinds of machine learning models, in particular in natural language processing. It is possible to adjust the F-score to give more importance to precision over recall, or vice-versa. Common adjusted F-scores are the F0.5-score and the F2-score, as well as the standard F1-score. (Verbatim text do not use directly; [source](https://deepai.org/machine-learning-glossary-and-terms/f-score)
+
+The F1-score is a popular evaluation metric for the two NLP functions reviewed in this paper. Comparisons can be classified as exact or relaxed match [17]. Relaxed match only considers the correct type and ignores the boundaries as long as there is an overlap with ground truth boundaries. In the case of an exact match, it is expected that the entity identified correctly should also detect boundary and type correctly at the same time [17]. The following keys are used to calculate the F-score, precision, and recall.
+
+True Positive (TP): A perfect match between the entity obtained by NER system and the ground truth.
+False Positive (FP): Entity detected by the NER system but not present in the ground truth.
+False Negative (FN): Entity not detected by the NER system but present in the ground truth.
+True Negative (TN): No match between the entity obtained by NER system and the ground truth.
+
+--> from Gandhi et al (Dissertation) Chapter 7 on Evaluation super helpful.
+
+A good blog on NER metrics https://www.davidsbatista.net/blog/2018/05/09/Named_Entity_Evaluation/
+
+#### Exact Match Evaluation
+#### Relaxed Match evaluation
+#### N-gram Evaluation
+
+## Negative identification/Assertion models and NER
+**Negation detection in Dutch clinical texts: an evaluation of rule-based and machine learning methods**
+https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-022-05130-x
+
+The paper compares ConTextD (rules-based), BiLSTM model using MedCAT, and RoBERTa-based models for negative detection. They used the Erasmus Medical Center Dutch Clinical Corpus; found that both the biLSTM and RoBERTa models consistently outperform the rule-based model.
+
+This paper has an excellent treatment for **error analysis** across models. 
+
+
+
+
+
+** Joint Entity Extraction and Assertion Detection for Clinical Text** 
+https://arxiv.org/abs/1812.05270
+## Expected Output from the Moore team models
+| |Models ---->>>|NER|Rules-Based/Model|Relations Model|Dictionary/Lexicon Mapping|
+|:----|:----|:----|:----|:----|:----|
+|Patient ID|date_of_visit|Symptoms|Assertion|Temporal relation at visit|UMLS/LOINC code|
+|1|8-Apr-22|Fever|Negative|current|8896|
+|1|8-Apr-22|Dysuria|Positive|not current| |
+|1|8-Apr-22|flank pain|Positive|current| |
+|1|7-Aug-22|Fever|Positive|current| |
+|1|7-Aug-22|Congestion|Positive|current| |
+|2|9-Apr-22|Cough|Positive|current| |
